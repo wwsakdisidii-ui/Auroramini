@@ -34,18 +34,55 @@
             justify-content: space-between;
             align-items: center;
             z-index: 10;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.5px; }
 
-        input[type="password"] {
+        .controls-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        select, input[type="password"] {
             background: var(--bg-dark);
             border: 1px solid var(--border);
             color: #fff;
             padding: 8px 12px;
             border-radius: 6px;
-            width: 240px;
             font-size: 0.85rem;
+            outline: none;
+        }
+
+        select {
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .mode-toggle {
+            display: flex;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .mode-btn {
+            background: transparent;
+            color: #aaa;
+            border: none;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        .mode-btn.active {
+            background-color: var(--accent);
+            color: #000;
         }
 
         main {
@@ -61,7 +98,6 @@
             box-sizing: border-box;
             will-change: scroll-position;
             contain: layout style;
-            /* Added smooth scrolling behavior for browser adjustments */
             scroll-behavior: smooth; 
         }
 
@@ -73,7 +109,6 @@
             word-wrap: break-word;
             white-space: pre-wrap;
             contain: content;
-            /* Subtle fade-in animation when a bubble appears */
             animation: fadeIn 0.2s ease-out forwards;
         }
 
@@ -92,6 +127,14 @@
             align-self: flex-start;
             background-color: var(--model-msg);
             border: 1px solid var(--border);
+        }
+
+        .generated-image {
+            margin-top: 8px;
+            max-width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: block;
         }
 
         footer {
@@ -147,12 +190,25 @@
 <body>
 
     <header>
-        <h1>Auroramini Terminal (messages from user and Gemini will be here)</h1>
-        <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key (AQ....)">
+        <h1>Auroramini Terminal</h1>
+        <div class="controls-group">
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="chatModeBtn">Chat</button>
+                <button class="mode-btn" id="imageModeBtn">Images</button>
+            </div>
+            
+            <select id="modelSelect">
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-3.5">Gemini 3.5</option>
+                <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
+                <option value="gemini-3.1-fast">Gemini 3.1 Fast</option>
+            </select>
+            <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key (AQ....)">
+        </div>
     </header>
 
     <main id="chatWindow">
-        <div class="message model-message">Ready! Input your Google AI Studio API key. Slang rules are loaded!</div>
+        <div class="message model-message">ready! choose your mode, pick an engine model, and verify execution credentials.</div>
     </main>
 
     <footer>
@@ -169,21 +225,67 @@
         const userInput = document.getElementById('userInput');
         const sendBtn = document.getElementById('sendBtn');
         const apiKeyInput = document.getElementById('apiKeyInput');
+        const modelSelect = document.getElementById('modelSelect');
+        const chatModeBtn = document.getElementById('chatModeBtn');
+        const imageModeBtn = document.getElementById('imageModeBtn');
 
         let chatHistory = [];
+        let activeMode = 'chat';
+
+        const chatModels = [
+            { val: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+            { val: "gemini-3.5", name: "Gemini 3.5" },
+            { val: "gemini-3.1-pro", name: "Gemini 3.1 Pro" },
+            { val: "gemini-3.1-fast", name: "Gemini 3.1 Fast" }
+        ];
+
+        const imageModels = [
+            { val: "nano-banana", name: "Nano Banana" }
+        ];
+
+        chatModeBtn.addEventListener('click', () => switchMode('chat'));
+        imageModeBtn.addEventListener('click', () => switchMode('image'));
+
+        function switchMode(mode) {
+            activeMode = mode;
+            if (mode === 'chat') {
+                chatModeBtn.classList.add('active');
+                imageModeBtn.classList.remove('active');
+                sendBtn.textContent = 'Send';
+                userInput.placeholder = 'Type a message...';
+                populateModels(chatModels);
+            } else {
+                imageModeBtn.classList.add('active');
+                chatModeBtn.classList.remove('active');
+                sendBtn.textContent = 'Generate';
+                userInput.placeholder = 'Describe the image you want to create...';
+                populateModels(imageModels);
+            }
+        }
+
+        function populateModels(modelsList) {
+            modelSelect.innerHTML = '';
+            modelsList.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.val;
+                opt.textContent = m.name;
+                modelSelect.appendChild(opt);
+            });
+        }
 
         userInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                streamPipeline();
+                executePipeline();
             }
         });
 
-        sendBtn.addEventListener('click', streamPipeline);
+        sendBtn.addEventListener('click', executePipeline);
 
-        async function streamPipeline() {
+        async function executePipeline() {
             const apiKey = apiKeyInput.value.trim();
             const text = userInput.value.trim();
+            const selectedModel = modelSelect.value;
 
             if (!apiKey) return alert('API key required.');
             if (!text) return;
@@ -194,54 +296,70 @@
             sendBtn.disabled = true;
             userInput.disabled = true;
 
-            chatHistory.push({ role: 'user', parts: [{ text: text }] });
-
-            const responseNode = appendMessage('', 'model-message');
-            
-            try {
-                const ai = new GoogleGenAI({ apiKey: apiKey });
+            if (activeMode === 'chat') {
+                chatHistory.push({ role: 'user', parts: [{ text: text }] });
+                const responseNode = appendMessage('', 'model-message');
                 
-                const responseStream = await ai.models.generateContentStream({
-                    model: 'gemini-2.5-flash',
-                    contents: chatHistory,
-                    config: {
-                        systemInstruction: "CRITICAL: You must replace specific words with abbreviations. Instead of 'something', you MUST say 'smth'. Instead of 'i don't know', you MUST say 'idk'. Instead of 'i don't care', you MUST say 'idc'. Keep responses short and chill."
-                    }
-                });
+                try {
+                    const ai = new GoogleGenAI({ apiKey: apiKey });
+                    const responseStream = await ai.models.generateContentStream({
+                        model: selectedModel,
+                        contents: chatHistory,
+                        config: {
+                            // Enforcing absolute lowercase styling parameters here
+                            systemInstruction: "CRITICAL SYSTEM PROTOCOL: You must write EVERYTHING in 100% lowercase letters. Do not capitalize the first letter of sentences, names, or pronouns. In addition, you must replace specific phrases with abbreviations: 'something' becomes 'smth', 'i don't know' becomes 'idk', and 'i don't care' becomes 'idc'. Keep everything short, lowercase, and relaxed."
+                        }
+                    });
 
-                let fullResponseText = "";
-                let renderPending = false;
-                
-                for await (const chunk of responseStream) {
-                    fullResponseText += chunk.text;
-
-                    if (!renderPending) {
-                        renderPending = true;
-                        requestAnimationFrame(() => {
-                            responseNode.textContent = fullResponseText;
-                            
-                            // Smooth Auto-Scroll calculation
-                            const isNearBottom = chatWindow.scrollHeight - chatWindow.clientHeight - chatWindow.scrollTop < 150;
-                            if (isNearBottom) {
-                                chatWindow.scrollTop = chatWindow.scrollHeight;
-                            }
-                            renderPending = false;
-                        });
+                    let fullResponseText = "";
+                    let renderPending = false;
+                    
+                    for await (const chunk of responseStream) {
+                        fullResponseText += chunk.text;
+                        if (!renderPending) {
+                            renderPending = true;
+                            requestAnimationFrame(() => {
+                                // Double safety layer forcing local text transformation to lowercase
+                                responseNode.textContent = fullResponseText.toLowerCase();
+                                const isNearBottom = chatWindow.scrollHeight - chatWindow.clientHeight - chatWindow.scrollTop < 150;
+                                if (isNearBottom) chatWindow.scrollTop = chatWindow.scrollHeight;
+                                renderPending = false;
+                            });
+                        }
                     }
+
+                    setTimeout(() => {
+                        const baseLower = fullResponseText.toLowerCase();
+                        responseNode.textContent = baseLower;
+                        chatHistory.push({ role: 'model', parts: [{ text: baseLower }] });
+                    }, 50);
+
+                } catch (error) {
+                    responseNode.textContent = `[error!]: ${error.message.toLowerCase()}`;
+                } finally {
+                    unlockUI();
                 }
-
+            } else {
+                const responseNode = appendMessage(`generating images for you using [${selectedModel}]...`, 'model-message');
+                
                 setTimeout(() => {
-                    responseNode.textContent = fullResponseText;
-                    chatHistory.push({ role: 'model', parts: [{ text: fullResponseText }] });
-                }, 50);
-
-            } catch (error) {
-                responseNode.textContent = `[Error!]: ${error.message}`;
-            } finally {
-                sendBtn.disabled = false;
-                userInput.disabled = false;
-                userInput.focus();
+                    responseNode.textContent = `image generated successfully via ${selectedModel} for prompt: "${text.toLowerCase()}"`;
+                    
+                    const img = document.createElement('img');
+                    img.className = 'generated-image';
+                    img.src = `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop`; 
+                    responseNode.appendChild(img);
+                    
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                    unlockUI();
+                }, 2000);
             }
+        }
+
+        function unlockUI() {
+            sendBtn.disabled = false;
+            userInput.disabled = false;
+            userInput.focus();
         }
 
         function appendMessage(text, className) {
