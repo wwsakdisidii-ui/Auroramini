@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auroramini</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet">
+    
     <style>
         :root {
             --bg-dark: #0f0f11;
@@ -16,7 +20,7 @@
         }
 
         body {
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: 'Roboto', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-dark);
             color: var(--text);
             margin: 0;
@@ -38,7 +42,7 @@
             gap: 10px;
         }
 
-        h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.5px; }
+        h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.5px; font-weight: 500; }
 
         .controls-group {
             display: flex;
@@ -54,6 +58,7 @@
             border-radius: 6px;
             font-size: 0.85rem;
             outline: none;
+            font-family: inherit;
         }
 
         select {
@@ -78,6 +83,7 @@
             font-weight: 600;
             cursor: pointer;
             border-radius: 0;
+            font-family: inherit;
         }
 
         .mode-btn.active {
@@ -174,6 +180,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: background-color 0.2s, opacity 0.2s;
+            font-family: inherit;
         }
 
         button:hover { opacity: 0.9; }
@@ -199,7 +206,6 @@
             </div>
             
             <select id="modelSelect">
-                <!-- keeping only the fresh supported standard production engine -->
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
             </select>
             <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key (AQ....)">
@@ -231,13 +237,12 @@
         let chatHistory = [];
         let activeMode = 'chat';
 
-        // keeping only stable active models
         const chatModels = [
             { val: "gemini-2.5-flash", name: "Gemini 2.5 Flash" }
         ];
 
         const imageModels = [
-            { val: "imagen-3.0-generate-002", name: "Nano Banana" }
+            { val: "gemini-2.5-flash-image", name: "Nano Banana" }
         ];
 
         chatModeBtn.addEventListener('click', () => switchMode('chat'));
@@ -336,7 +341,8 @@
                     unlockUI();
                 }
             } else {
-                const responseNode = appendMessage('generating visual matrix via nano-banana...', 'model-message');
+                // simple image status string applied here
+                const responseNode = appendMessage('generating image via nano-banana...', 'model-message');
                 
                 try {
                     const response = await ai.models.generateImages({
