@@ -130,8 +130,9 @@
         }
 
         .generated-image {
-            margin-top: 8px;
+            margin-top: 10px;
             max-width: 100%;
+            max-height: 450px;
             border-radius: 8px;
             border: 1px solid var(--border);
             display: block;
@@ -240,7 +241,7 @@
         ];
 
         const imageModels = [
-            { val: "nano-banana", name: "Nano Banana" }
+            { val: "imagen-3.0-generate-002", name: "Nano Banana" }
         ];
 
         chatModeBtn.addEventListener('click', () => switchMode('chat'));
@@ -296,17 +297,17 @@
             sendBtn.disabled = true;
             userInput.disabled = true;
 
+            const ai = new GoogleGenAI({ apiKey: apiKey });
+
             if (activeMode === 'chat') {
                 chatHistory.push({ role: 'user', parts: [{ text: text }] });
                 const responseNode = appendMessage('', 'model-message');
                 
                 try {
-                    const ai = new GoogleGenAI({ apiKey: apiKey });
                     const responseStream = await ai.models.generateContentStream({
                         model: selectedModel,
                         contents: chatHistory,
                         config: {
-                            // Enforcing absolute lowercase styling parameters here
                             systemInstruction: "CRITICAL SYSTEM PROTOCOL: You must write EVERYTHING in 100% lowercase letters. Do not capitalize the first letter of sentences, names, or pronouns. In addition, you must replace specific phrases with abbreviations: 'something' becomes 'smth', 'i don't know' becomes 'idk', and 'i don't care' becomes 'idc'. Keep everything short, lowercase, and relaxed."
                         }
                     });
@@ -319,7 +320,6 @@
                         if (!renderPending) {
                             renderPending = true;
                             requestAnimationFrame(() => {
-                                // Double safety layer forcing local text transformation to lowercase
                                 responseNode.textContent = fullResponseText.toLowerCase();
                                 const isNearBottom = chatWindow.scrollHeight - chatWindow.clientHeight - chatWindow.scrollTop < 150;
                                 if (isNearBottom) chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -340,19 +340,37 @@
                     unlockUI();
                 }
             } else {
-                const responseNode = appendMessage(`generating images for you using [${selectedModel}]...`, 'model-message');
+                // LIVE IMAGE GENERATION PIPELINE
+                const responseNode = appendMessage('generating visual matrix via nano-banana...', 'model-message');
                 
-                setTimeout(() => {
-                    responseNode.textContent = `image generated successfully via ${selectedModel} for prompt: "${text.toLowerCase()}"`;
+                try {
+                    const response = await ai.models.generateImages({
+                        model: selectedModel, // calls true imagen-3.0 backend engine
+                        prompt: text,
+                        config: {
+                            numberOfImages: 1,
+                            outputMimeType: 'image/jpeg',
+                            aspectRatio: '1:1'
+                        }
+                    });
+
+                    // clear loading text status
+                    responseNode.textContent = `image generated successfully via nano-banana for prompt: "${text.toLowerCase()}"`;
+                    
+                    // extract base64 pixel source from google response object
+                    const base64ImageBytes = response.generatedImages[0].image.imageBytes;
                     
                     const img = document.createElement('img');
                     img.className = 'generated-image';
-                    img.src = `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop`; 
+                    img.src = `data:image/jpeg;base64,${base64ImageBytes}`;
                     responseNode.appendChild(img);
                     
                     chatWindow.scrollTop = chatWindow.scrollHeight;
+                } catch (error) {
+                    responseNode.textContent = `[error generating image]: ${error.message.toLowerCase()}`;
+                } finally {
                     unlockUI();
-                }, 2000);
+                }
             }
         }
 
