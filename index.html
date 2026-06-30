@@ -199,10 +199,8 @@
             </div>
             
             <select id="modelSelect">
+                <!-- keeping only the fresh supported standard production engine -->
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                <option value="gemini-3.5">Gemini 3.5</option>
-                <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
-                <option value="gemini-3.1-fast">Gemini 3.1 Fast</option>
             </select>
             <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key (AQ....)">
         </div>
@@ -233,11 +231,9 @@
         let chatHistory = [];
         let activeMode = 'chat';
 
+        // keeping only stable active models
         const chatModels = [
-            { val: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-            { val: "gemini-3.5", name: "Gemini 3.5" },
-            { val: "gemini-3.1-pro", name: "Gemini 3.1 Pro" },
-            { val: "gemini-3.1-fast", name: "Gemini 3.1 Fast" }
+            { val: "gemini-2.5-flash", name: "Gemini 2.5 Flash" }
         ];
 
         const imageModels = [
@@ -340,12 +336,11 @@
                     unlockUI();
                 }
             } else {
-                // LIVE IMAGE GENERATION PIPELINE
                 const responseNode = appendMessage('generating visual matrix via nano-banana...', 'model-message');
                 
                 try {
                     const response = await ai.models.generateImages({
-                        model: selectedModel, // calls true imagen-3.0 backend engine
+                        model: selectedModel,
                         prompt: text,
                         config: {
                             numberOfImages: 1,
@@ -354,10 +349,8 @@
                         }
                     });
 
-                    // clear loading text status
                     responseNode.textContent = `image generated successfully via nano-banana for prompt: "${text.toLowerCase()}"`;
                     
-                    // extract base64 pixel source from google response object
                     const base64ImageBytes = response.generatedImages[0].image.imageBytes;
                     
                     const img = document.createElement('img');
